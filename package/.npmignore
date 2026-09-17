@@ -1,0 +1,13 @@
+src/
+tests/
+tsconfig.json
+oxfmt.config.ts
+oxlint.config.ts
+.editorconfig
+tsup.config.ts
+bun.lock
+*.tsbuildinfo
+coverage/
+.DS_Store
+.vscode/
+.idea/

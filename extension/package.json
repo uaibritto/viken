@@ -1,0 +1,73 @@
+{
+  "name": "viken",
+  "displayName": "Viken",
+  "version": "0.1.0",
+  "description": "Syntax highlighting and IntelliSense for Viken files (.vk, .viken)",
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "@vikyn/viken",
+    "cursor",
+    "dsl",
+    "snippets",
+    "viken",
+    "vscode"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/uaibritto/viken/extension"
+  },
+  "publisher": "uaibritto",
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "tsup",
+    "vscode:prepublish": "npm run build",
+    "package": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "@types/vscode": "^1.138.0",
+    "tsup": "^8.5.1",
+    "typescript": "^7.0.2"
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "viken",
+        "aliases": [
+          "Viken",
+          "viken"
+        ],
+        "extensions": [
+          ".vk",
+          ".viken"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/viking-helmet.svg",
+          "dark": "./icons/viking-helmet.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "viken",
+        "scopeName": "source.viken",
+        "path": "./syntaxes/viken.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.tsx": "typescriptreact"
+        }
+      }
+    ]
+  },
+  "activationEvents": [
+    "onLanguage:viken"
+  ],
+  "icon": "./icon.png",
+  "engines": {
+    "vscode": "^1.138.0"
+  }
+}

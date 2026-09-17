@@ -1,0 +1,89 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Viken",
+  "scopeName": "source.viken",
+  "fileTypes": ["vk", "viken"],
+  "patterns": [
+    { "include": "#headerBlock" },
+    { "include": "#snippetBlock" },
+    { "include": "#comment" },
+    { "include": "#directive" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "^\\s*(#.*)$",
+      "name": "comment.line.number-sign.viken"
+    },
+    "directive": {
+      "comment": "Só o '@' recebe escopo de destaque; o nome da diretiva (Header/Snippet/Body) fica sem escopo próprio, herdando a cor padrão do texto.",
+      "match": "^\\s*(@)(Header|Snippet|Body)\\b",
+      "captures": {
+        "1": { "name": "keyword.control.directive.viken" }
+      }
+    },
+    "keyValue": {
+      "match": "^\\s*([A-Za-z_][A-Za-z0-9_-]*)\\s*(:)\\s*(.*)$",
+      "captures": {
+        "1": { "name": "entity.name.tag.viken" },
+        "2": { "name": "punctuation.separator.key-value.viken" },
+        "3": { "patterns": [{ "include": "#value" }] }
+      }
+    },
+    "value": {
+      "patterns": [
+        { "match": "\\b(true|false)\\b", "name": "constant.language.boolean.viken" },
+        { "match": ".+", "name": "string.unquoted.viken" }
+      ]
+    },
+    "placeholder": {
+      "patterns": [
+        {
+          "comment": "${...} com até 1 nível de aninhamento, ex: ${TM_FILENAME_BASE/(.*)/${1:/capitalize}/}",
+          "match": "\\$\\{(?:[^{}]|\\{[^{}]*\\})*\\}",
+          "name": "variable.parameter.placeholder.viken"
+        },
+        {
+          "match": "\\$[A-Z_][A-Z0-9_]*",
+          "name": "variable.parameter.placeholder.viken"
+        },
+        {
+          "match": "\\$\\d+",
+          "name": "variable.parameter.placeholder.viken"
+        }
+      ]
+    },
+    "headerBlock": {
+      "begin": "^\\s*(@)(Header)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.directive.viken" }
+      },
+      "end": "(?=^\\s*@(Header|Snippet)\\b)",
+      "name": "meta.block.header.viken",
+      "patterns": [{ "include": "#comment" }, { "include": "#keyValue" }]
+    },
+    "snippetBlock": {
+      "begin": "^\\s*(@)(Snippet)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.directive.viken" }
+      },
+      "end": "(?=^\\s*@(Header|Snippet)\\b)",
+      "name": "meta.block.snippet.viken",
+      "patterns": [
+        { "include": "#bodyBlock" },
+        { "include": "#comment" },
+        { "include": "#keyValue" }
+      ]
+    },
+    "bodyBlock": {
+      "comment": "O conteúdo de @Body é código arbitrário. Embutimos a gramática do TSX (via 'source.tsx', que já cobre JS/TS/JSX) para dar highlight real; os placeholders do VS Code ($0, ${...}) são resolvidos ANTES disso, senão o TSX tentaria interpretar ${...} como template literal.",
+      "begin": "^\\s*(@)(Body)\\b",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.directive.viken" }
+      },
+      "end": "(?=^\\s*@(Header|Snippet)\\b)",
+      "name": "meta.block.body.viken",
+      "contentName": "meta.embedded.block.tsx",
+      "patterns": [{ "include": "#placeholder" }, { "include": "source.tsx" }]
+    }
+  }
+}

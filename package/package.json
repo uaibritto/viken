@@ -1,0 +1,51 @@
+{
+    "name": "@vikyn/viken",
+    "version": "0.1.2",
+    "description": "DSL and compiler to generate VS Code snippets from .vk/.viken files",
+    "keywords": [
+        "code-snippets",
+        "codegen",
+        "compiler",
+        "cursor",
+        "dsl",
+        "snippets",
+        "typescript",
+        "viken",
+        "vscode"
+    ],
+    "license": "MIT",
+    "author": {
+        "name": "Britto",
+        "email": "uaibritto@icloud.com",
+        "url": "https://github.com/uaibritto"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/uaibritto/viken/package"
+    },
+    "bin": {
+        "viken": "./dist/cli/index.js"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "license"
+    ],
+    "type": "module",
+    "scripts": {
+        "build": "tsup",
+        "lint": "oxlint .",
+        "fmt": "oxfmt",
+        "clean": "rm -rf dist"
+    },
+    "dependencies": {
+        "commander": "^13.1.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.20.1",
+        "oxfmt": "^0.66.0",
+        "oxlint": "^1.82.0",
+        "tsup": "^8.5.1",
+        "typescript": "^7.0.2"
+    }
+}
