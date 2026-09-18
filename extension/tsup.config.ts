@@ -1,4 +1,4 @@
-import { defineConfig } from "tsup";
+import { defineConfig } from "tsup"
 
 export default defineConfig({
   entry: { extension: "src/extension.ts" },
@@ -7,5 +7,5 @@ export default defineConfig({
   target: "node18",
   sourcemap: true,
   clean: true,
-  dts: false,
-});
+  dts: false
+})

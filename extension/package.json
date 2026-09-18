@@ -1,35 +1,42 @@
 {
   "name": "viken",
   "displayName": "Viken",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Syntax highlighting and IntelliSense for Viken files (.vk, .viken)",
   "categories": [
     "Programming Languages",
     "Snippets"
   ],
   "keywords": [
-    "@vikyn/viken",
     "cursor",
     "dsl",
     "snippets",
     "viken",
+    "vikyn/viken",
     "vscode"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/uaibritto/viken/extension"
+    "url": "https://github.com/uaibritto/viken/tree/main/extension"
   },
   "publisher": "uaibritto",
-  "main": "./dist/extension.js",
+  "type": "module",
+  "main": "./dist/extension.cjs",
   "scripts": {
     "build": "tsup",
     "vscode:prepublish": "npm run build",
-    "package": "npx @vscode/vsce package"
+    "package": "npx @vscode/vsce package",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix"
   },
   "devDependencies": {
-    "@types/node": "^26.6.1",
-    "@types/vscode": "^1.138.0",
+    "@types/node": "^22.20.1",
+    "@types/vscode": "^1.75.0",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2"
   },
@@ -68,6 +75,6 @@
   ],
   "icon": "./icon.png",
   "engines": {
-    "vscode": "^1.138.0"
+    "vscode": "^1.75.0"
   }
 }

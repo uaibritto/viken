@@ -1,5 +1,7 @@
+// src/cli/index.ts
+
 import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises"
-import { basename, dirname, extname, join, resolve } from "node:path"
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 
 import { Command } from "commander"
 
@@ -7,13 +9,38 @@ import { compileToVSCodeSnippets } from "../core/compiler.js"
 import { parseViken } from "../core/parser.js"
 
 const SUPPORTED_EXTENSIONS = new Set([".vk", ".viken"])
+const IGNORED_DIR_NAMES = new Set(["node_modules", ".git"])
 
-async function listVikenFilesInDir(dir: string): Promise<string[]> {
+function hasSupportedExtension(path: string): boolean {
+    return SUPPORTED_EXTENSIONS.has(extname(path).toLowerCase())
+}
+
+/**
+ * Percorre o diretório recursivamente coletando todos os arquivos .vk/.viken.
+ * Diretórios ocultos (começando com ".") e "node_modules" são ignorados,
+ * para evitar varrer dependências instaladas ou metadados de VCS.
+ */
+async function listVikenFilesRecursive(dir: string): Promise<string[]> {
     const entries = await readdir(dir, { withFileTypes: true })
-    return entries
-        .filter((e) => e.isFile())
-        .map((e) => join(dir, e.name))
-        .filter((p) => SUPPORTED_EXTENSIONS.has(extname(p)))
+    const results: string[] = []
+
+    for (const entry of entries) {
+        const fullPath = join(dir, entry.name)
+
+        if (entry.isDirectory()) {
+            if (IGNORED_DIR_NAMES.has(entry.name) || entry.name.startsWith(".")) {
+                continue
+            }
+            results.push(...(await listVikenFilesRecursive(fullPath)))
+            continue
+        }
+
+        if (entry.isFile() && hasSupportedExtension(entry.name)) {
+            results.push(fullPath)
+        }
+    }
+
+    return results
 }
 
 async function collectTargets(input: string): Promise<string[]> {
@@ -21,13 +48,12 @@ async function collectTargets(input: string): Promise<string[]> {
     const stats = await stat(fullPath)
 
     if (stats.isDirectory()) {
-        return listVikenFilesInDir(fullPath)
+        return listVikenFilesRecursive(fullPath)
     }
 
     if (stats.isFile()) {
-        const ext = extname(fullPath)
-        if (!SUPPORTED_EXTENSIONS.has(ext)) {
-            throw new Error(`Extensão não suportada: ${ext}. Use .vk ou .viken.`)
+        if (!hasSupportedExtension(fullPath)) {
+            throw new Error(`Extensão não suportada: ${extname(fullPath)}. Use .vk ou .viken.`)
         }
         return [fullPath]
     }
@@ -38,6 +64,28 @@ async function collectTargets(input: string): Promise<string[]> {
 async function ensureDirExists(path: string): Promise<void> {
     const dir = dirname(path)
     await mkdir(dir, { recursive: true })
+}
+
+/**
+ * Resolve o `output` do @Header contra a raiz do projeto (process.cwd(),
+ * ou seja, o diretório onde o comando `viken compile` foi executado),
+ * e NÃO contra o diretório onde o arquivo .vk/.viken está localizado.
+ *
+ * Também valida que o caminho resultante não escapa da raiz do projeto
+ * (proteção contra path traversal via `output: ../../../etc/cron.d/x`
+ * em um arquivo .vk malicioso ou de terceiros).
+ */
+function resolveOutputPath(projectRoot: string, output: string): string {
+    const outPath = resolve(projectRoot, output)
+    const rel = relative(projectRoot, outPath)
+
+    if (rel.startsWith("..") || isAbsolute(rel)) {
+        throw new Error(
+            `'output' ("${output}") resolve para fora da raiz do projeto (${projectRoot})`
+        )
+    }
+
+    return outPath
 }
 
 async function compileInput(input: string): Promise<void> {
@@ -51,16 +99,40 @@ async function compileInput(input: string): Promise<void> {
         return
     }
 
+    const projectRoot = process.cwd()
+    const writtenBy = new Map<string, string>() // outPath -> arquivo de origem
+    let hadError = false
+
     for (const file of files) {
-        const content = await readFile(file, "utf8")
-        const ast = parseViken(content)
-        const json = compileToVSCodeSnippets(ast)
-        const outPath = resolve(dirname(file), ast.header.output)
+        const displayFile = relative(projectRoot, file)
 
-        await ensureDirExists(outPath)
-        await writeFile(outPath, JSON.stringify(json, null, 2), "utf8")
+        try {
+            const content = await readFile(file, "utf8")
+            const ast = parseViken(content)
+            const json = compileToVSCodeSnippets(ast)
+            const outPath = resolveOutputPath(projectRoot, ast.header.output)
 
-        console.log(`✔ ${basename(file)} -> ${outPath}`)
+            const previousSource = writtenBy.get(outPath)
+            if (previousSource && previousSource !== file) {
+                console.warn(
+                    `⚠ ${displayFile}: 'output' (${relative(projectRoot, outPath)}) já foi escrito por ${relative(projectRoot, previousSource)} nesta mesma execução — o resultado anterior será sobrescrito.`
+                )
+            }
+            writtenBy.set(outPath, file)
+
+            await ensureDirExists(outPath)
+            await writeFile(outPath, JSON.stringify(json, null, 2), "utf8")
+
+            console.log(`✔ ${displayFile} -> ${relative(projectRoot, outPath)}`)
+        } catch (err) {
+            hadError = true
+            const message = err instanceof Error ? err.message : String(err)
+            console.error(`✘ ${displayFile}: ${message}`)
+        }
+    }
+
+    if (hadError) {
+        process.exitCode = 1
     }
 }
 
@@ -69,11 +141,15 @@ const program = new Command()
 program
     .name("viken")
     .description("Compilador da DSL Viken para snippets do VS Code")
-    .version("0.1.0")
+    .version("0.1.4")
 
 program
     .command("compile")
-    .argument("[path]", "Diretório com arquivos .vk/.viken ou arquivo específico", "snippets")
+    .argument(
+        "[path]",
+        "Diretório (buscado recursivamente) com arquivos .vk/.viken, ou arquivo específico",
+        "snippets"
+    )
     .action(async (path) => {
         await compileInput(path)
     })

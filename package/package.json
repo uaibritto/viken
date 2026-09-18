@@ -1,6 +1,6 @@
 {
     "name": "@vikyn/viken",
-    "version": "0.1.2",
+    "version": "0.1.4",
     "description": "DSL and compiler to generate VS Code snippets from .vk/.viken files",
     "keywords": [
         "code-snippets",
@@ -21,7 +21,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/uaibritto/viken/package"
+        "url": "https://github.com/uaibritto/viken/tree/main/package"
     },
     "bin": {
         "viken": "./dist/cli/index.js"
@@ -47,5 +47,8 @@
         "oxlint": "^1.82.0",
         "tsup": "^8.5.1",
         "typescript": "^7.0.2"
+    },
+    "engines": {
+        "node": ">=18"
     }
 }

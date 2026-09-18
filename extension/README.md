@@ -23,8 +23,8 @@
 
 @Snippet
     prefix: rfc
-    name: React Functional Component
-    detail: Create Functional Component
+    name: "React Functional Component"
+    detail: "Create Functional Component"
     template: true
 
     @Body
@@ -37,7 +37,13 @@
         }
 ```
 
+A file has exactly one `@Header`, followed by as many `@Snippet` blocks as you want. `@Body` may only appear inside a `@Snippet`.
+
 This extension provides editor support for the language: it does not compile anything (that is handled by the `viken` package CLI) — it simply makes `.vk`/`.viken` files pleasant to edit.
+
+## **Editor compatibility**
+
+Works in **VS Code** and **Cursor** (and any other VS Code-compatible editor) — the minimum required host version is VS Code `1.75.0` or later.
 
 ## **Features**
 
@@ -49,19 +55,23 @@ This extension provides editor support for the language: it does not compile any
 
 - **Directives** (`@Header`, `@Snippet`, `@Body`): only the `@` receives a highlight color; the directive name retains the theme's default text color.
 - **Properties** (`scope:`, `output:`, `prefix:`, `name:`, `detail:`, `template:`): the key is highlighted, and `true`/`false` are recognized as booleans.
+- **Quoted string values**: `name: "React Functional Component"` (and `detail`, or any property) is highlighted as a proper string, with `\"` recognized as an escape sequence. Unquoted values still work exactly as before.
 - **VS Code snippet placeholders** inside `@Body`: `$0`, `$1`, `${1:label}`, `${TM_FILENAME_BASE/.../.../}` (1 level of nesting).
 - **Code inside `@Body`**, according to the actual language declared in `scope:` — see the [@Body Highlighting](#body-highlighting) section below, as this has an important limitation worth understanding.
 - Line comments using `#` outside `@Body` (same rule as the compiler).
+- Highlighting is consistent across every `@Header`/`@Snippet`/`@Body` block in a file — `@Header`, `@Snippet`, and `@Body` are independent, sibling blocks in the grammar, so a file with several `@Snippet` blocks colors every one of them identically.
 
 ### **💡 IntelliSense**
 
 - Typing `@` suggests **only the directives that are valid at that point in the file**:
   - `@Header` disappears from the list if the file already contains one (only one can exist).
+  - `@Snippet` is always suggested — a file can have as many as you want.
   - `@Body` only appears inside an `@Snippet` that does not yet have a body.
-  - Inside the body code itself (e.g., a TypeScript decorator such as `@Component()`), nothing is suggested — there `@` is code syntax, not a Viken directive.
+  - An unindented `@` (column 0) is always treated as the start of a new top-level block (`@Header`/`@Snippet`), even right after a previous snippet's `@Body` — so starting a second, third, etc. `@Snippet` always gets suggestions.
+  - Inside the body code itself, indented (e.g., a TypeScript decorator such as `@Component()`), nothing is suggested — there `@` is code syntax, not a Viken directive.
 - On an empty line inside `@Header`/`@Snippet`, valid properties for that block are suggested.
-- After `scope:`, a curated list of common VS Code language IDs is suggested. After `template:`, only `true`/`false` are suggested.
-- **Hover**: hovering over a directive or property explains what it does and which field of the VS Code snippet schema it maps to.
+- After `scope:`, a curated list of common VS Code language IDs is suggested (including `tsrx` — see [tsrx.dev](https://tsrx.dev/)). After `template:`, only `true`/`false` are suggested.
+- **Hover**: hovering over a directive or property explains what it does and which field of the VS Code snippet schema it maps to. The `output` hover reflects the compiler's current behavior: the path is resolved relative to the **project root**, not to the `.vk` file.
 
 ## **@Body Highlighting**
 
@@ -69,15 +79,15 @@ A snippet body can be written in any language — that is the purpose of `scope:
 
 For this reason, `@Body` highlighting has two layers:
 
-1. **Base (TextMate grammar)**: embeds the TSX grammar (`source.tsx`) as generic highlighting. This works reasonably well for languages similar to JS/TS/C, but it is not "correct" for Python, Ruby, Lua, etc.
+1. **Base (TextMate grammar)**: embeds the TSX grammar (`source.tsx`) as generic highlighting. This works reasonably well for languages similar to JS/TS/C (including `tsrx`), but it is not "correct" for Python, Ruby, Lua, etc.
 
 2. **Semantic (`SemanticTokensProvider`, in `src/extension.ts` + `src/bodyTokenizer.ts`)**: reads the actual `scope:` from the file and tokenizes `@Body` according to the declared language family — correcting comments, strings, and a curated set of common keywords for:
 
-   | Family | Comment | Languages (`scope:`)                                                                                                                   |
-   | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-   | C-like | `//`    | `typescript`, `typescriptreact`, `javascript`, `javascriptreact`, `java`, `c`, `cpp`, `csharp`, `go`, `rust`, `kotlin`, `swift`, `php` |
-   | Hash   | `#`     | `python`, `ruby`, `perl`                                                                                                               |
-   | Dash   | `--`    | `lua`                                                                                                                                  |
+   | Family | Comment | Languages (`scope:`)                                                                                                                           |
+   | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+   | C-like | `//`    | `typescript`, `typescriptreact`, `javascript`, `javascriptreact`, `tsrx`, `java`, `c`, `cpp`, `csharp`, `go`, `rust`, `kotlin`, `swift`, `php` |
+   | Hash   | `#`     | `python`, `ruby`, `perl`                                                                                                                       |
+   | Dash   | `--`    | `lua`                                                                                                                                          |
 
    `vue`, `svelte`, `html`, `json` (and any `scope:` outside the table) only use the base layer (generic TSX) — these are host/hybrid languages where a tokenizer for a single family would introduce more errors than it would solve.
 
@@ -120,6 +130,19 @@ viken-vscode/
 ├── package.json                  extension manifest
 └── tsup.config.ts                bundling (esbuild) for dist/extension.js
 ```
+
+## **Changelog**
+
+### 0.1.1
+
+- Fixed: `@Header`, `@Snippet`, and `@Body` are now independent, sibling blocks in the TextMate grammar instead of nested inside one another. Previously, `@Body` and its enclosing `@Snippet` ended on the exact same zero-width condition, which made the highlight of a snippet's metadata (`name`, `detail`, `prefix`...) inconsistent depending on where the snippet appeared in the file — with no actual error in the code.
+- Fixed: typing `@` right after a previous snippet's `@Body` now correctly suggests `@Snippet`/`@Header` again. Previously, an unindented `@` was misclassified as "still inside the previous body" and no suggestions appeared, as if only one `@Snippet` were allowed per file (only `@Header` is limited to one).
+- Fixed: `language-configuration.json` was misnamed (a dot instead of a hyphen) relative to what `package.json` expects, so bracket-matching, auto-closing pairs, and `#` comment toggling silently never loaded.
+- Fixed: the `output` hover text was out of date — it now says the path is resolved relative to the **project root**, matching the `viken` compiler's current behavior (see the main package's changelog).
+- Fixed: `engines.vscode` was set to a version newer than what Cursor currently ships, which made the extension fail to install there ("not compatible with the current version of Cursor"). Lowered to `^1.75.0`, which both current VS Code and Cursor satisfy.
+- Added: quoted string values (`name: "..."`, `detail: "..."`, etc.) are now highlighted as proper strings, with `\"` recognized as an escape sequence — mirrors the quoting support added to the `viken` compiler.
+- Added: `tsrx` (see [tsrx.dev](https://tsrx.dev/)) now also gets C-like semantic highlighting in `@Body` (comments, strings, keywords), instead of only the generic TSX base layer.
+- Improved: the keyword `Set` used by the body tokenizer is now cached per language family instead of being rebuilt on every line, on every semantic-tokens refresh.
 
 ## **Suggested Next Steps**
 

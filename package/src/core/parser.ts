@@ -1,3 +1,5 @@
+// src/core/parser.ts
+
 import type { FileNode, HeaderNode, SnippetNode } from "./ast.js"
 
 type ParserState = "none" | "header" | "snippet-props" | "snippet-body"
@@ -48,6 +50,21 @@ function normalizeBody(bodyLines: string[]): string[] {
     return trimmedEdges.map((line) => (line.trim().length === 0 ? "" : line.slice(minIndent)))
 }
 
+/**
+ * Se o valor estiver entre aspas duplas ("..."), remove as aspas e
+ * desfaz o escape de aspas internas (\"). Isso permite escrever
+ * `name: "React Functional Component"` — útil sobretudo quando o valor
+ * contém palavras que um syntax highlighter poderia confundir com
+ * palavras-chave de código (ex: "function", "class", "return").
+ * Valores sem aspas continuam funcionando normalmente (retrocompatível).
+ */
+function unquoteValue(value: string): string {
+    if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+        return value.slice(1, -1).replace(/\\"/g, '"')
+    }
+    return value
+}
+
 /** Faz o split de "chave: valor", preservando ":" extras dentro do valor. */
 function splitKeyValue(
     trimmed: string,
@@ -67,7 +84,7 @@ function splitKeyValue(
         throw new Error(`Sintaxe inválida em ${context} na linha ${lineNumber}: "${original}"`)
     }
 
-    return [key, value]
+    return [key, unquoteValue(value)]
 }
 
 export function parseViken(source: string): FileNode {

@@ -1,26 +1,30 @@
-import * as vscode from "vscode";
-import { SCOPE_FAMILY, tokenizeLine } from "./bodyTokenizer.js";
+import * as vscode from "vscode"
 
-const DIRECTIVES = ["Header", "Snippet", "Body"] as const;
+import { SCOPE_FAMILY, tokenizeLine } from "./bodyTokenizer.js"
+
+const DIRECTIVES = ["Header", "Snippet", "Body"] as const
 
 const HEADER_PROPERTIES: Record<string, string> = {
   scope:
     "Escopo de linguagem do VS Code onde o snippet fica disponível (ex: `typescript`, `typescriptreact`).",
   output:
-    "Caminho do arquivo `.json` de snippets gerado pelo compilador, relativo ao arquivo `.vk`.",
-};
+    "Caminho do arquivo `.json` de snippets gerado pelo compilador, relativo à raiz do projeto (o diretório onde `viken compile` é executado) — não ao arquivo `.vk`."
+}
 
 const SNIPPET_PROPERTIES: Record<string, string> = {
   prefix: "Atalho digitado no editor para disparar o snippet.",
-  name: "Nome do snippet — vira a chave no JSON de snippets do VS Code.",
-  detail: "Descrição exibida na lista de sugestões (mapeia para `description` no schema).",
+  name: 'Nome do snippet — vira a chave no JSON de snippets do VS Code. Pode vir entre aspas (ex: "React Functional Component").',
+  detail:
+    "Descrição exibida na lista de sugestões (mapeia para `description` no schema). Pode vir entre aspas.",
   template:
-    "`true` | `false` — quando `true`, o snippet vira um template de arquivo (`isFileTemplate`).",
-};
+    "`true` | `false` — quando `true`, o snippet vira um template de arquivo (`isFileTemplate`)."
+}
 
 // Lista curada dos language ids mais comuns do VS Code para autocomplete de "scope:".
 // Não é exaustiva de propósito — "scope" aceita qualquer language id válido,
 // registrado pelo VS Code ou por outra extensão instalada.
+// "tsrx" (https://tsrx.dev/) é um superset de TypeScript para UI, com extensão
+// própria no Marketplace — mantido aqui de propósito, não é um valor inválido.
 const SCOPE_VALUES = [
   "typescript",
   "typescriptreact",
@@ -43,37 +47,37 @@ const SCOPE_VALUES = [
   "php",
   "ruby",
   "perl",
-  "lua",
-] as const;
+  "lua"
+] as const
 
-const TEMPLATE_VALUES = ["true", "false"] as const;
+const TEMPLATE_VALUES = ["true", "false"] as const
 
-type BlockKind = "none" | "header" | "snippet" | "body";
+type BlockKind = "none" | "header" | "snippet" | "body"
 
 function findEnclosingBlock(document: vscode.TextDocument, fromLine: number): BlockKind {
   for (let i = fromLine; i >= 0; i--) {
-    const text = document.lineAt(i).text.trim();
-    if (text === "@Body") return "body";
-    if (text === "@Snippet") return "snippet";
-    if (text === "@Header") return "header";
+    const text = document.lineAt(i).text.trim()
+    if (text === "@Body") return "body"
+    if (text === "@Snippet") return "snippet"
+    if (text === "@Header") return "header"
   }
-  return "none";
+  return "none"
 }
 
 function directiveCompletionItem(name: (typeof DIRECTIVES)[number]): vscode.CompletionItem {
-  const item = new vscode.CompletionItem(`@${name}`, vscode.CompletionItemKind.Keyword);
-  item.insertText = name;
-  item.detail = `Diretiva @${name}`;
-  item.sortText = `0-${name}`;
-  return item;
+  const item = new vscode.CompletionItem(`@${name}`, vscode.CompletionItemKind.Keyword)
+  item.insertText = name
+  item.detail = `Diretiva @${name}`
+  item.sortText = `0-${name}`
+  return item
 }
 
 /** Verifica se o arquivo já tem um @Header — só pode existir um por arquivo. */
 function hasHeaderDirective(document: vscode.TextDocument): boolean {
   for (let i = 0; i < document.lineCount; i++) {
-    if (document.lineAt(i).text.trim() === "@Header") return true;
+    if (document.lineAt(i).text.trim() === "@Header") return true
   }
-  return false;
+  return false
 }
 
 /**
@@ -86,74 +90,94 @@ function hasHeaderDirective(document: vscode.TextDocument): boolean {
  */
 function availableDirectiveCompletions(
   document: vscode.TextDocument,
-  block: BlockKind,
+  block: BlockKind
 ): vscode.CompletionItem[] {
-  if (block === "body") return [];
+  if (block === "body") return []
 
-  const items: vscode.CompletionItem[] = [];
-  if (!hasHeaderDirective(document)) items.push(directiveCompletionItem("Header"));
-  items.push(directiveCompletionItem("Snippet"));
-  if (block === "snippet") items.push(directiveCompletionItem("Body"));
-  return items;
+  const items: vscode.CompletionItem[] = []
+  if (!hasHeaderDirective(document)) items.push(directiveCompletionItem("Header"))
+  items.push(directiveCompletionItem("Snippet"))
+  if (block === "snippet") items.push(directiveCompletionItem("Body"))
+  return items
+}
+
+/**
+ * Diretivas de topo (@Header/@Snippet) sugeridas quando o "@" é digitado
+ * sem NENHUMA indentação. Em todos os exemplos e no README, @Header e
+ * @Snippet sempre aparecem na coluna 0 — só as propriedades e o conteúdo
+ * de @Body vêm indentados. Isso resolve o caso em que o usuário está
+ * começando um novo @Snippet logo após o corpo do snippet anterior: uma
+ * varredura ingênua para trás (findEnclosingBlock) encontra o @Body
+ * anterior antes de qualquer @Snippet/@Header e classificaria a posição
+ * como "dentro do corpo", suprimindo a sugestão — mesmo que o "@" digitado
+ * sem indentação deixe claro que a intenção é iniciar um bloco novo, não
+ * escrever código (um decorator, por exemplo, também apareceria como "@",
+ * mas sempre indentado dentro do corpo, nunca na coluna 0).
+ */
+function topLevelDirectiveCompletions(document: vscode.TextDocument): vscode.CompletionItem[] {
+  const items: vscode.CompletionItem[] = []
+  if (!hasHeaderDirective(document)) items.push(directiveCompletionItem("Header"))
+  items.push(directiveCompletionItem("Snippet"))
+  return items
 }
 
 function propertyCompletionItems(properties: Record<string, string>): vscode.CompletionItem[] {
   return Object.entries(properties).map(([key, doc]) => {
-    const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Property);
-    item.documentation = new vscode.MarkdownString(doc);
+    const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Property)
+    item.documentation = new vscode.MarkdownString(doc)
     // Sem ":" no insertText de propósito: assim o usuário digita ":" na
     // sequência, o que dispara nosso próprio provider (registrado com
     // ":" como trigger character) para sugerir o valor certo.
-    return item;
-  });
+    return item
+  })
 }
 
 function enumValueCompletionItems(values: readonly string[]): vscode.CompletionItem[] {
-  return values.map((v) => new vscode.CompletionItem(v, vscode.CompletionItemKind.EnumMember));
+  return values.map((v) => new vscode.CompletionItem(v, vscode.CompletionItemKind.EnumMember))
 }
 
 /** Lê o valor de "scope:" declarado no (único) @Header do arquivo. */
 function findHeaderScope(document: vscode.TextDocument): string | undefined {
-  let insideHeader = false;
+  let insideHeader = false
   for (let i = 0; i < document.lineCount; i++) {
-    const trimmed = document.lineAt(i).text.trim();
+    const trimmed = document.lineAt(i).text.trim()
     if (trimmed === "@Header") {
-      insideHeader = true;
-      continue;
+      insideHeader = true
+      continue
     }
-    if (trimmed === "@Snippet") break;
+    if (trimmed === "@Snippet") break
     if (insideHeader) {
-      const match = /^scope\s*:\s*(.+)$/.exec(trimmed);
-      if (match) return match[1]?.trim();
+      const match = /^scope\s*:\s*(.+)$/.exec(trimmed)
+      if (match) return match[1]?.trim()
     }
   }
-  return undefined;
+  return undefined
 }
 
 /** Encontra os intervalos de linha [inicio, fim] de cada bloco @Body do arquivo. */
 function findBodyRanges(document: vscode.TextDocument): Array<[number, number]> {
-  const ranges: Array<[number, number]> = [];
-  let bodyStart: number | null = null;
+  const ranges: Array<[number, number]> = []
+  let bodyStart: number | null = null
 
   for (let i = 0; i < document.lineCount; i++) {
-    const trimmed = document.lineAt(i).text.trim();
+    const trimmed = document.lineAt(i).text.trim()
     if (trimmed === "@Body") {
-      bodyStart = i + 1;
-      continue;
+      bodyStart = i + 1
+      continue
     }
     if ((trimmed === "@Snippet" || trimmed === "@Header") && bodyStart !== null) {
-      ranges.push([bodyStart, i - 1]);
-      bodyStart = null;
+      ranges.push([bodyStart, i - 1])
+      bodyStart = null
     }
   }
   if (bodyStart !== null) {
-    ranges.push([bodyStart, document.lineCount - 1]);
+    ranges.push([bodyStart, document.lineCount - 1])
   }
-  return ranges;
+  return ranges
 }
 
-const SEMANTIC_TOKEN_TYPES = ["comment", "string", "number", "keyword"] as const;
-const semanticTokensLegend = new vscode.SemanticTokensLegend([...SEMANTIC_TOKEN_TYPES]);
+const SEMANTIC_TOKEN_TYPES = ["comment", "string", "number", "keyword"] as const
+const semanticTokensLegend = new vscode.SemanticTokensLegend([...SEMANTIC_TOKEN_TYPES])
 
 /**
  * Colore comentário/string/número/keyword dentro de @Body de acordo com a
@@ -165,106 +189,113 @@ const semanticTokensLegend = new vscode.SemanticTokensLegend([...SEMANTIC_TOKEN_
  */
 const semanticTokensProvider: vscode.DocumentSemanticTokensProvider = {
   provideDocumentSemanticTokens(document) {
-    const builder = new vscode.SemanticTokensBuilder(semanticTokensLegend);
+    const builder = new vscode.SemanticTokensBuilder(semanticTokensLegend)
 
-    const scope = findHeaderScope(document);
-    const family = scope ? SCOPE_FAMILY[scope] : undefined;
+    const scope = findHeaderScope(document)
+    const family = scope ? SCOPE_FAMILY[scope] : undefined
 
     if (family) {
       for (const [start, end] of findBodyRanges(document)) {
         for (let line = start; line <= end && line < document.lineCount; line++) {
-          const text = document.lineAt(line).text;
+          const text = document.lineAt(line).text
           for (const token of tokenizeLine(text, family)) {
-            builder.push(line, token.start, token.length, SEMANTIC_TOKEN_TYPES.indexOf(token.type));
+            builder.push(line, token.start, token.length, SEMANTIC_TOKEN_TYPES.indexOf(token.type))
           }
         }
       }
     }
 
-    return builder.build();
-  },
-};
+    return builder.build()
+  }
+}
 
 export function activate(context: vscode.ExtensionContext): void {
-  const selector: vscode.DocumentSelector = { language: "viken" };
+  const selector: vscode.DocumentSelector = { language: "viken" }
 
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     selector,
     {
       provideCompletionItems(document, position) {
-        const lineText = document.lineAt(position.line).text;
-        const beforeCursor = lineText.slice(0, position.character);
-        const trimmedBefore = beforeCursor.trim();
+        const lineText = document.lineAt(position.line).text
+        const beforeCursor = lineText.slice(0, position.character)
+        const trimmedBefore = beforeCursor.trim()
 
         // 1) Digitou "@": sugere só as diretivas válidas nesse ponto do arquivo
         if (trimmedBefore === "@") {
-          const block = findEnclosingBlock(document, position.line - 1);
-          return availableDirectiveCompletions(document, block);
+          // "@" sem NENHUMA indentação (coluna 0): só pode ser o início de um
+          // novo bloco de topo (@Header ou @Snippet), mesmo que a varredura
+          // para trás encontre um @Body ainda "aberto" do snippet anterior —
+          // ver o comentário de topLevelDirectiveCompletions.
+          if (beforeCursor === "@") {
+            return topLevelDirectiveCompletions(document)
+          }
+          const block = findEnclosingBlock(document, position.line - 1)
+          return availableDirectiveCompletions(document, block)
         }
 
         // 2) Valores conhecidos logo depois de "chave:"
         if (/^\s*scope\s*:\s*\S*$/.test(beforeCursor)) {
-          return enumValueCompletionItems(SCOPE_VALUES);
+          return enumValueCompletionItems(SCOPE_VALUES)
         }
         if (/^\s*template\s*:\s*\S*$/.test(beforeCursor)) {
-          return enumValueCompletionItems(TEMPLATE_VALUES);
+          return enumValueCompletionItems(TEMPLATE_VALUES)
         }
 
         // Já tem ":" na linha mas não é um valor que conhecemos
         // (ex: prefix/name/detail/output aceitam texto livre) — não interfere.
         if (beforeCursor.includes(":")) {
-          return undefined;
+          return undefined
         }
 
         // 3) Início de linha vazia dentro de um bloco: sugere propriedades
         if (trimmedBefore === "") {
-          const block = findEnclosingBlock(document, position.line - 1);
-          if (block === "header") return propertyCompletionItems(HEADER_PROPERTIES);
-          if (block === "snippet") return propertyCompletionItems(SNIPPET_PROPERTIES);
+          const block = findEnclosingBlock(document, position.line - 1)
+          if (block === "header") return propertyCompletionItems(HEADER_PROPERTIES)
+          if (block === "snippet") return propertyCompletionItems(SNIPPET_PROPERTIES)
         }
 
-        return undefined;
-      },
+        return undefined
+      }
     },
     "@",
-    ":",
-  );
+    ":"
+  )
 
   const hoverProvider = vscode.languages.registerHoverProvider(selector, {
     provideHover(document, position) {
-      const range = document.getWordRangeAtPosition(position, /[@A-Za-z_][A-Za-z0-9_]*/);
-      if (!range) return undefined;
+      const range = document.getWordRangeAtPosition(position, /[@A-Za-z_][A-Za-z0-9_]*/)
+      if (!range) return undefined
 
-      const word = document.getText(range);
+      const word = document.getText(range)
 
       if (word.startsWith("@")) {
-        const name = word.slice(1);
+        const name = word.slice(1)
         if ((DIRECTIVES as readonly string[]).includes(name)) {
-          return new vscode.Hover(new vscode.MarkdownString(`**@${name}** — diretiva Viken.`));
+          return new vscode.Hover(new vscode.MarkdownString(`**@${name}** — diretiva Viken.`))
         }
-        return undefined;
+        return undefined
       }
 
-      const block = findEnclosingBlock(document, position.line);
+      const block = findEnclosingBlock(document, position.line)
       const doc =
         block === "header"
           ? HEADER_PROPERTIES[word]
           : block === "snippet"
             ? SNIPPET_PROPERTIES[word]
-            : undefined;
+            : undefined
 
-      return doc ? new vscode.Hover(new vscode.MarkdownString(doc)) : undefined;
-    },
-  });
+      return doc ? new vscode.Hover(new vscode.MarkdownString(doc)) : undefined
+    }
+  })
 
-  context.subscriptions.push(completionProvider, hoverProvider);
+  context.subscriptions.push(completionProvider, hoverProvider)
 
   const semanticProvider = vscode.languages.registerDocumentSemanticTokensProvider(
     selector,
     semanticTokensProvider,
-    semanticTokensLegend,
-  );
-  context.subscriptions.push(semanticProvider);
+    semanticTokensLegend
+  )
+  context.subscriptions.push(semanticProvider)
 }
 
 export function deactivate(): void {}
