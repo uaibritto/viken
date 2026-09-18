@@ -64,11 +64,11 @@ Works in **VS Code** and **Cursor** (and any other VS Code-compatible editor) �
 ### **💡 IntelliSense**
 
 - Typing `@` suggests **only the directives that are valid at that point in the file**:
-  - `@Header` disappears from the list if the file already contains one (only one can exist).
-  - `@Snippet` is always suggested — a file can have as many as you want.
-  - `@Body` only appears inside an `@Snippet` that does not yet have a body.
-  - An unindented `@` (column 0) is always treated as the start of a new top-level block (`@Header`/`@Snippet`), even right after a previous snippet's `@Body` — so starting a second, third, etc. `@Snippet` always gets suggestions.
-  - Inside the body code itself, indented (e.g., a TypeScript decorator such as `@Component()`), nothing is suggested — there `@` is code syntax, not a Viken directive.
+    - `@Header` disappears from the list if the file already contains one (only one can exist).
+    - `@Snippet` is always suggested — a file can have as many as you want.
+    - `@Body` only appears inside an `@Snippet` that does not yet have a body.
+    - An unindented `@` (column 0) is always treated as the start of a new top-level block (`@Header`/`@Snippet`), even right after a previous snippet's `@Body` — so starting a second, third, etc. `@Snippet` always gets suggestions.
+    - Inside the body code itself, indented (e.g., a TypeScript decorator such as `@Component()`), nothing is suggested — there `@` is code syntax, not a Viken directive.
 - On an empty line inside `@Header`/`@Snippet`, valid properties for that block are suggested.
 - After `scope:`, a curated list of common VS Code language IDs is suggested (including `tsrx` — see [tsrx.dev](https://tsrx.dev/)). After `template:`, only `true`/`false` are suggested.
 - **Hover**: hovering over a directive or property explains what it does and which field of the VS Code snippet schema it maps to. The `output` hover reflects the compiler's current behavior: the path is resolved relative to the **project root**, not to the `.vk` file.
@@ -83,13 +83,13 @@ For this reason, `@Body` highlighting has two layers:
 
 2. **Semantic (`SemanticTokensProvider`, in `src/extension.ts` + `src/bodyTokenizer.ts`)**: reads the actual `scope:` from the file and tokenizes `@Body` according to the declared language family — correcting comments, strings, and a curated set of common keywords for:
 
-   | Family | Comment | Languages (`scope:`)                                                                                                                           |
-   | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-   | C-like | `//`    | `typescript`, `typescriptreact`, `javascript`, `javascriptreact`, `tsrx`, `java`, `c`, `cpp`, `csharp`, `go`, `rust`, `kotlin`, `swift`, `php` |
-   | Hash   | `#`     | `python`, `ruby`, `perl`                                                                                                                       |
-   | Dash   | `--`    | `lua`                                                                                                                                          |
+    | Family | Comment | Languages (`scope:`)                                                                                                                           |
+    | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+    | C-like | `//`    | `typescript`, `typescriptreact`, `javascript`, `javascriptreact`, `tsrx`, `java`, `c`, `cpp`, `csharp`, `go`, `rust`, `kotlin`, `swift`, `php` |
+    | Hash   | `#`     | `python`, `ruby`, `perl`                                                                                                                       |
+    | Dash   | `--`    | `lua`                                                                                                                                          |
 
-   `vue`, `svelte`, `html`, `json` (and any `scope:` outside the table) only use the base layer (generic TSX) — these are host/hybrid languages where a tokenizer for a single family would introduce more errors than it would solve.
+    `vue`, `svelte`, `html`, `json` (and any `scope:` outside the table) only use the base layer (generic TSX) — these are host/hybrid languages where a tokenizer for a single family would introduce more errors than it would solve.
 
 **Intentional limitations, to keep things simple:**
 

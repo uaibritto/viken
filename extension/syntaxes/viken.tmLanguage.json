@@ -1,95 +1,95 @@
 {
-  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Viken",
-  "scopeName": "source.viken",
-  "fileTypes": ["vk", "viken"],
-  "patterns": [
-    { "include": "#headerBlock" },
-    { "include": "#snippetPropsBlock" },
-    { "include": "#bodyBlock" },
-    { "include": "#comment" },
-    { "include": "#directive" }
-  ],
-  "repository": {
-    "comment": {
-      "match": "^\\s*(#.*)$",
-      "name": "comment.line.number-sign.viken"
-    },
-    "directive": {
-      "comment": "Só o '@' recebe escopo de destaque; o nome da diretiva (Header/Snippet/Body) fica sem escopo próprio, herdando a cor padrão do texto. Serve de fallback para uma diretiva fora do lugar esperado (ex: @Body sem @Snippet).",
-      "match": "^\\s*(@)(Header|Snippet|Body)\\b",
-      "captures": {
-        "1": { "name": "keyword.control.directive.viken" }
-      }
-    },
-    "keyValue": {
-      "match": "^\\s*([A-Za-z_][A-Za-z0-9_-]*)\\s*(:)\\s*(.*)$",
-      "captures": {
-        "1": { "name": "entity.name.tag.viken" },
-        "2": { "name": "punctuation.separator.key-value.viken" },
-        "3": { "patterns": [{ "include": "#value" }] }
-      }
-    },
-    "value": {
-      "patterns": [
-        { "include": "#quotedString" },
-        { "match": "\\b(true|false)\\b", "name": "constant.language.boolean.viken" },
-        { "match": ".+", "name": "string.unquoted.viken" }
-      ]
-    },
-    "quotedString": {
-      "comment": "Valor entre aspas duplas, ex: name: \"React Functional Component\". Espelha o suporte a aspas adicionado ao parser do compilador (evita que uma palavra como 'function' seja lida como código por uma ferramenta futura).",
-      "begin": "\"",
-      "end": "\"",
-      "name": "string.quoted.double.viken",
-      "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.viken" }]
-    },
-    "placeholder": {
-      "patterns": [
-        {
-          "comment": "${...} com até 1 nível de aninhamento, ex: ${TM_FILENAME_BASE/(.*)/${1:/capitalize}/}",
-          "match": "\\$\\{(?:[^{}]|\\{[^{}]*\\})*\\}",
-          "name": "variable.parameter.placeholder.viken"
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Viken",
+    "scopeName": "source.viken",
+    "fileTypes": ["vk", "viken"],
+    "patterns": [
+        { "include": "#headerBlock" },
+        { "include": "#snippetPropsBlock" },
+        { "include": "#bodyBlock" },
+        { "include": "#comment" },
+        { "include": "#directive" }
+    ],
+    "repository": {
+        "comment": {
+            "match": "^\\s*(#.*)$",
+            "name": "comment.line.number-sign.viken"
         },
-        {
-          "match": "\\$[A-Z_][A-Z0-9_]*",
-          "name": "variable.parameter.placeholder.viken"
+        "directive": {
+            "comment": "Só o '@' recebe escopo de destaque; o nome da diretiva (Header/Snippet/Body) fica sem escopo próprio, herdando a cor padrão do texto. Serve de fallback para uma diretiva fora do lugar esperado (ex: @Body sem @Snippet).",
+            "match": "^\\s*(@)(Header|Snippet|Body)\\b",
+            "captures": {
+                "1": { "name": "keyword.control.directive.viken" }
+            }
         },
-        {
-          "match": "\\$\\d+",
-          "name": "variable.parameter.placeholder.viken"
+        "keyValue": {
+            "match": "^\\s*([A-Za-z_][A-Za-z0-9_-]*)\\s*(:)\\s*(.*)$",
+            "captures": {
+                "1": { "name": "entity.name.tag.viken" },
+                "2": { "name": "punctuation.separator.key-value.viken" },
+                "3": { "patterns": [{ "include": "#value" }] }
+            }
+        },
+        "value": {
+            "patterns": [
+                { "include": "#quotedString" },
+                { "match": "\\b(true|false)\\b", "name": "constant.language.boolean.viken" },
+                { "match": ".+", "name": "string.unquoted.viken" }
+            ]
+        },
+        "quotedString": {
+            "comment": "Valor entre aspas duplas, ex: name: \"React Functional Component\". Espelha o suporte a aspas adicionado ao parser do compilador (evita que uma palavra como 'function' seja lida como código por uma ferramenta futura).",
+            "begin": "\"",
+            "end": "\"",
+            "name": "string.quoted.double.viken",
+            "patterns": [{ "match": "\\\\.", "name": "constant.character.escape.viken" }]
+        },
+        "placeholder": {
+            "patterns": [
+                {
+                    "comment": "${...} com até 1 nível de aninhamento, ex: ${TM_FILENAME_BASE/(.*)/${1:/capitalize}/}",
+                    "match": "\\$\\{(?:[^{}]|\\{[^{}]*\\})*\\}",
+                    "name": "variable.parameter.placeholder.viken"
+                },
+                {
+                    "match": "\\$[A-Z_][A-Z0-9_]*",
+                    "name": "variable.parameter.placeholder.viken"
+                },
+                {
+                    "match": "\\$\\d+",
+                    "name": "variable.parameter.placeholder.viken"
+                }
+            ]
+        },
+        "headerBlock": {
+            "begin": "^\\s*(@)(Header)\\b",
+            "beginCaptures": {
+                "1": { "name": "keyword.control.directive.viken" }
+            },
+            "end": "(?=^\\s*@(?:Header|Snippet)\\b)",
+            "name": "meta.block.header.viken",
+            "patterns": [{ "include": "#comment" }, { "include": "#keyValue" }]
+        },
+        "snippetPropsBlock": {
+            "comment": "Cobre APENAS as propriedades de @Snippet (prefix/name/detail/template) — termina assim que @Body começa, e não quando o próximo @Header/@Snippet aparece. Isso mantém este bloco e #bodyBlock como irmãos no nível superior em vez de aninhados, o que evita que os dois precisem fechar na MESMA posição (zero-width) — a causa da inconsistência de cor entre snippets em versões anteriores da gramática.",
+            "begin": "^\\s*(@)(Snippet)\\b",
+            "beginCaptures": {
+                "1": { "name": "keyword.control.directive.viken" }
+            },
+            "end": "(?=^\\s*@(?:Header|Snippet|Body)\\b)",
+            "name": "meta.block.snippet.viken",
+            "patterns": [{ "include": "#comment" }, { "include": "#keyValue" }]
+        },
+        "bodyBlock": {
+            "comment": "O conteúdo de @Body é código arbitrário. Embutimos a gramática do TSX (via 'source.tsx', que já cobre JS/TS/JSX) para dar highlight real; os placeholders do VS Code ($0, ${...}) são resolvidos ANTES disso, senão o TSX tentaria interpretar ${...} como template literal. Bloco irmão de #headerBlock/#snippetPropsBlock (não aninhado dentro deles).",
+            "begin": "^\\s*(@)(Body)\\b",
+            "beginCaptures": {
+                "1": { "name": "keyword.control.directive.viken" }
+            },
+            "end": "(?=^\\s*@(?:Header|Snippet)\\b)",
+            "name": "meta.block.body.viken",
+            "contentName": "meta.embedded.block.tsx",
+            "patterns": [{ "include": "#placeholder" }, { "include": "source.tsx" }]
         }
-      ]
-    },
-    "headerBlock": {
-      "begin": "^\\s*(@)(Header)\\b",
-      "beginCaptures": {
-        "1": { "name": "keyword.control.directive.viken" }
-      },
-      "end": "(?=^\\s*@(?:Header|Snippet)\\b)",
-      "name": "meta.block.header.viken",
-      "patterns": [{ "include": "#comment" }, { "include": "#keyValue" }]
-    },
-    "snippetPropsBlock": {
-      "comment": "Cobre APENAS as propriedades de @Snippet (prefix/name/detail/template) — termina assim que @Body começa, e não quando o próximo @Header/@Snippet aparece. Isso mantém este bloco e #bodyBlock como irmãos no nível superior em vez de aninhados, o que evita que os dois precisem fechar na MESMA posição (zero-width) — a causa da inconsistência de cor entre snippets em versões anteriores da gramática.",
-      "begin": "^\\s*(@)(Snippet)\\b",
-      "beginCaptures": {
-        "1": { "name": "keyword.control.directive.viken" }
-      },
-      "end": "(?=^\\s*@(?:Header|Snippet|Body)\\b)",
-      "name": "meta.block.snippet.viken",
-      "patterns": [{ "include": "#comment" }, { "include": "#keyValue" }]
-    },
-    "bodyBlock": {
-      "comment": "O conteúdo de @Body é código arbitrário. Embutimos a gramática do TSX (via 'source.tsx', que já cobre JS/TS/JSX) para dar highlight real; os placeholders do VS Code ($0, ${...}) são resolvidos ANTES disso, senão o TSX tentaria interpretar ${...} como template literal. Bloco irmão de #headerBlock/#snippetPropsBlock (não aninhado dentro deles).",
-      "begin": "^\\s*(@)(Body)\\b",
-      "beginCaptures": {
-        "1": { "name": "keyword.control.directive.viken" }
-      },
-      "end": "(?=^\\s*@(?:Header|Snippet)\\b)",
-      "name": "meta.block.body.viken",
-      "contentName": "meta.embedded.block.tsx",
-      "patterns": [{ "include": "#placeholder" }, { "include": "source.tsx" }]
     }
-  }
 }
