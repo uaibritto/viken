@@ -10,6 +10,8 @@ DSL and compiler to generate VS Code snippet files (`.code-snippets` / `snippets
 
 </br>
 
+> Part of the [Viken monorepo](../../README.md), which also contains the [VS Code/Cursor extension](../extension).
+
 ## Installation
 
 ```bash
@@ -25,6 +27,8 @@ Create a `.vk` (or `.viken`) file:
     scope: typescriptreact
     output: react/tsx.json
 
+@Const fileNameBase = ${TM_FILENAME_BASE/(.*)/${1:/capitalize}/}
+
 @Snippet
     name: "React Functional Component"
     prefix: rfc
@@ -34,7 +38,7 @@ Create a `.vk` (or `.viken`) file:
     @Body
         import type { JSX } from "react"
 
-        export default function ${TM_FILENAME_BASE/(.*)/${1:/capitalize}/}(): JSX.Element {
+        export default function fileNameBase(): JSX.Element {
             return (
                 $0
             )
@@ -75,7 +79,7 @@ For safety, an `output` that would resolve outside the project root (e.g. via `.
 
 ## DSL syntax
 
-One `@Header` and one or more `@Snippet` blocks per file.
+One `@Header` and one or more `@Snippet` blocks per file, plus any number of `@Const` declarations.
 
 ### `@Header`
 
@@ -83,6 +87,27 @@ One `@Header` and one or more `@Snippet` blocks per file.
 | -------- | -------- | -------------------------------------------------- |
 | `scope`  | yes      | Target language(s) (VS Code `scope`)               |
 | `output` | yes      | Output JSON path, relative to the **project root** |
+
+### `@Const`
+
+```viken
+@Const <name> = <value>
+```
+
+A single-line, file-wide text macro. `<value>` (optionally wrapped in double quotes, same rule as other properties) is substituted, as a **whole word**, everywhere it appears inside any `@Body` that comes **after** the `@Const` line — so declare a const before the snippet(s) that use it. This is meant for repetitive placeholder expressions you don't want to retype in every snippet, e.g.:
+
+```viken
+@Const fileNameBase = ${TM_FILENAME_BASE/(.*)/${1:/capitalize}/}
+```
+
+Then, inside `@Body`, just write `fileNameBase` instead of the full placeholder expression.
+
+Notes:
+
+- `@Const` names must be valid identifiers (`[A-Za-z_][A-Za-z0-9_]*`) and can't be declared twice in the same file.
+- Substitution is purely textual (word-boundary find & replace), not scoped or hygienic — it does **not** know the difference between your placeholder and a real identifier that happens to have the same name. Pick distinctive const names to avoid accidental collisions with real code in `@Body`.
+- Consts don't expand recursively: if one const's value contains another const's name, it is not itself substituted.
+- `@Const` only affects `@Body` — it has no effect on `name`/`prefix`/`detail`/`scope`/`output`.
 
 ### `@Snippet`
 
@@ -95,23 +120,29 @@ One `@Header` and one or more `@Snippet` blocks per file.
 
 ### Quoting values
 
-Any property value may optionally be wrapped in double quotes, e.g. `name: "React Functional Component"`. The quotes are stripped by the parser. This is recommended for `name`/`detail` whenever the text contains a word that could be mistaken for a code keyword (`function`, `class`, `return`, etc.) — unquoted, a future editor syntax-highlighting pass could try to tokenize it as code instead of plain text. Values without quotes keep working exactly as before.
+Any property value (and `@Const` value) may optionally be wrapped in double quotes, e.g. `name: "React Functional Component"`. The quotes are stripped by the parser. This is recommended for `name`/`detail` whenever the text contains a word that could be mistaken for a code keyword (`function`, `class`, `return`, etc.). Values without quotes keep working exactly as before.
 
 ### `@Body`
 
-Content is copied literally (minimum common indentation stripped). Use standard VS Code placeholders (`$0`, `$1`, `${TM_FILENAME_BASE}`, etc).
+Content is copied literally (minimum common indentation stripped, then any `@Const` declared earlier in the file is substituted). Use standard VS Code placeholders (`$0`, `$1`, `${TM_FILENAME_BASE}`, etc).
 
 ### Comments
 
 Lines starting with `#` are ignored in `@Header`/`@Snippet`. Inside `@Body` they are literal.
 
-Multiple `@Snippet` blocks in one file share the header `scope`.
+Multiple `@Snippet` blocks in one file share the header `scope` and any `@Const` declared before them.
 
 ## Editor support
 
-For syntax highlighting and IntelliSense on `.vk`/`.viken` files in VS Code or Cursor, install the **Viken** extension from the marketplace (search for “Viken” or `@vikyn/viken`). The extension's grammar is being updated to match the quoted-value syntax above.
+For syntax highlighting and IntelliSense on `.vk`/`.viken` files in VS Code or Cursor, install the **Viken** extension from the marketplace (search for “Viken” or `@vikyn/viken`). `@Const` highlighting/IntelliSense in the extension is not implemented yet — see its own changelog.
 
 ## Changelog
+
+### 0.2.0
+
+- Added: `@Const <name> = <value>` — a file-wide text macro, substituted by whole word inside every `@Body` that follows its declaration. See the [`@Const`](#const) section above for details and limitations.
+- Moved to a monorepo (`packages/viken`, alongside `packages/extension`). No change for consumers of the published `@vikyn/viken` package — `bin`, `files`, and the CLI's behavior are unaffected.
+- Build now uses [tsdown](https://tsdown.dev/) (Rolldown-based) instead of tsup. No output change expected; if you build from source, `tsdown` replaces `tsup` as the dev dependency and `tsdown.config.ts` replaces `tsup.config.ts`.
 
 ### 0.1.4
 

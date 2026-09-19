@@ -8,5 +8,5 @@ export default defineConfig({
     sortImports: true,
     sortPackageJson: true,
     trailingComma: "none",
-    ignorePatterns: ["dist/**", "playground/dist/**"]
+    ignorePatterns: ["dist/**"]
 })

@@ -1,4 +1,4 @@
-import { defineConfig } from "tsup"
+import { defineConfig } from "tsdown"
 
 export default defineConfig([
     {
@@ -10,7 +10,7 @@ export default defineConfig([
         splitting: false,
         treeshake: true,
         minify: false,
-        banner: { js: "#!/usr/bin/env node" }
+        outputOptions: { banner: "#!/usr/bin/env node" }
     },
     {
         entry: {

@@ -87,19 +87,53 @@ function splitKeyValue(
     return [key, unquoteValue(value)]
 }
 
+/**
+ * "@Const nome = valor" — diretiva de LINHA ÚNICA (ao contrário de
+ * @Header/@Snippet, que abrem um bloco com propriedades indentadas nas
+ * linhas seguintes). O valor pode vir entre aspas, seguindo a mesma regra
+ * de unquote usada em name/detail/etc.
+ */
+const CONST_DIRECTIVE_RE = /^@Const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/
+
+/**
+ * Aplica os @Const conhecidos ATÉ O MOMENTO em que o snippet foi fechado
+ * (declare-before-use, coerente com o parser ser um passe único de cima
+ * para baixo) substituindo cada nome por palavra inteira (\b) no corpo.
+ *
+ * Limitação intencional, para manter a feature simples: a substituição é
+ * puramente textual, sem escopo/higiene — se o valor de um @Const contiver
+ * o nome de outro @Const como substring, não há expansão recursiva; e se o
+ * corpo tiver uma variável real com o mesmo nome do const, ela também será
+ * substituída. Recomenda-se escolher nomes de @Const pouco propensos a
+ * colidir com identificadores reais do código gerado (ex: fileNameBase, e
+ * não algo genérico como "name").
+ */
+function substituteConsts(bodyLines: string[], consts: ReadonlyMap<string, string>): string[] {
+    if (consts.size === 0) return bodyLines
+
+    return bodyLines.map((line) => {
+        let result = line
+        for (const [name, value] of consts) {
+            result = result.replace(new RegExp(`\\b${name}\\b`, "g"), value)
+        }
+        return result
+    })
+}
+
 export function parseViken(source: string): FileNode {
     const lines = source.split(/\r?\n/)
 
     let header: HeaderNode | null = null
     const snippets: SnippetNode[] = []
     const seenNames = new Set<string>()
+    const consts = new Map<string, string>()
 
     let currentSnippet: SnippetNode | null = null
     let state: ParserState = "none"
 
     const closeCurrentSnippet = (): void => {
         if (currentSnippet) {
-            currentSnippet.body = normalizeBody(currentSnippet.body)
+            currentSnippet.body = substituteConsts(normalizeBody(currentSnippet.body), consts)
             snippets.push(currentSnippet)
             currentSnippet = null
         }
@@ -114,7 +148,8 @@ export function parseViken(source: string): FileNode {
 
         // --- Corpo do snippet: tudo é literal, inclusive linhas em branco e "#" ---
         if (state === "snippet-body") {
-            const isNewDirective = trimmed === "@Header" || trimmed === "@Snippet"
+            const isNewDirective =
+                trimmed === "@Header" || trimmed === "@Snippet" || CONST_DIRECTIVE_RE.test(trimmed)
             if (!isNewDirective) {
                 currentSnippet!.body.push(original)
                 continue
@@ -127,6 +162,22 @@ export function parseViken(source: string): FileNode {
         }
 
         if (isCommentLine(trimmed)) {
+            continue
+        }
+
+        const constMatch = CONST_DIRECTIVE_RE.exec(trimmed)
+        if (constMatch) {
+            // @Const é sempre de topo: encerra qualquer @Header/@Snippet em
+            // andamento, do mesmo jeito que um novo @Header/@Snippet faria.
+            closeCurrentSnippet()
+            const name = constMatch[1] as string
+            const rawValue = constMatch[2] as string
+
+            if (consts.has(name)) {
+                throw new Error(`Const duplicado: "${name}" na linha ${lineNumber}`)
+            }
+            consts.set(name, unquoteValue(rawValue.trim()))
+            state = "none"
             continue
         }
 
@@ -193,7 +244,7 @@ export function parseViken(source: string): FileNode {
         }
 
         throw new Error(
-            `Linha fora de @Header/@Snippet/@Body na linha ${lineNumber}: "${original}"`
+            `Linha fora de @Header/@Snippet/@Body/@Const na linha ${lineNumber}: "${original}"`
         )
     }
 

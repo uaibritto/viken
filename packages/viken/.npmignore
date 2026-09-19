@@ -1,10 +1,7 @@
 src/
 tests/
 tsconfig.json
-oxfmt.config.ts
-oxlint.config.ts
-.editorconfig
-tsup.config.ts
+tsdown.config.ts
 bun.lock
 *.tsbuildinfo
 coverage/

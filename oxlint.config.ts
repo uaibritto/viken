@@ -16,5 +16,5 @@ export default defineConfig({
         eqeqeq: "error",
         "no-unused-vars": "off"
     },
-    ignorePatterns: ["dist", "node_modules", "tests/fixtures"]
+    ignorePatterns: ["dist", "node_modules"]
 })
